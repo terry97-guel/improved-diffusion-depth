@@ -58,7 +58,7 @@ def _list_image_files_recursively(data_dir):
     for entry in sorted(bf.listdir(data_dir)):
         full_path = bf.join(data_dir, entry)
         ext = entry.split(".")[-1]
-        if "." in entry and ext.lower() in ["jpg", "jpeg", "png", "gif"]:
+        if "." in entry and ext.lower() in ["jpg", "jpeg", "png", "gif", "npy"]:
             results.append(full_path)
         elif bf.isdir(full_path):
             results.extend(_list_image_files_recursively(full_path))
@@ -77,28 +77,34 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         path = self.local_images[idx]
-        with bf.BlobFile(path, "rb") as f:
-            pil_image = Image.open(f)
-            pil_image.load()
+        from pathlib import Path
+        if Path(path).suffix in ['.npy']:
+            arr = 2* np.load(path).astype(np.float32) - 1
+            
+        else:
+            # temppath = "datasets/cifar/cifar_train/bird_00006.png"
+            with bf.BlobFile(path, "rb") as f:
+                pil_image = Image.open(f)
+                pil_image.load()
 
-        # We are not on a new enough PIL to support the `reducing_gap`
-        # argument, which uses BOX downsampling at powers of two first.
-        # Thus, we do it by hand to improve downsample quality.
-        while min(*pil_image.size) >= 2 * self.resolution:
+            # We are not on a new enough PIL to support the `reducing_gap`
+            # argument, which uses BOX downsampling at powers of two first.
+            # Thus, we do it by hand to improve downsample quality.
+            while min(*pil_image.size) >= 2 * self.resolution:
+                pil_image = pil_image.resize(
+                    tuple(x // 2 for x in pil_image.size), resample=Image.BOX
+                )
+
+            scale = self.resolution / min(*pil_image.size)
             pil_image = pil_image.resize(
-                tuple(x // 2 for x in pil_image.size), resample=Image.BOX
+                tuple(round(x * scale) for x in pil_image.size), resample=Image.BICUBIC
             )
 
-        scale = self.resolution / min(*pil_image.size)
-        pil_image = pil_image.resize(
-            tuple(round(x * scale) for x in pil_image.size), resample=Image.BICUBIC
-        )
-
-        arr = np.array(pil_image.convert("RGB"))
-        crop_y = (arr.shape[0] - self.resolution) // 2
-        crop_x = (arr.shape[1] - self.resolution) // 2
-        arr = arr[crop_y : crop_y + self.resolution, crop_x : crop_x + self.resolution]
-        arr = arr.astype(np.float32) / 127.5 - 1
+            arr = np.array(pil_image.convert("RGB"))
+            crop_y = (arr.shape[0] - self.resolution) // 2
+            crop_x = (arr.shape[1] - self.resolution) // 2
+            arr = arr[crop_y : crop_y + self.resolution, crop_x : crop_x + self.resolution]
+            arr = arr.astype(np.float32) / 127.5 - 1
 
         out_dict = {}
         if self.local_classes is not None:

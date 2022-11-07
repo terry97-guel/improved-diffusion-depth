@@ -1,6 +1,19 @@
 """
 Train a diffusion model on images.
 """
+from pathlib import Path
+import sys
+
+try: 
+    get_ipython().__class__.__name__
+    BASEDIR = Path().absolute()
+    DEBUG_MODE = True
+except: 
+    BASEDIR = Path(__file__).parent.parent
+    DEBUG_MODE = False
+
+sys.path.append(str(BASEDIR))
+
 
 import argparse
 
@@ -20,7 +33,7 @@ def main():
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
-    logger.configure()
+    logger.configure("log")
 
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
@@ -36,7 +49,7 @@ def main():
         image_size=args.image_size,
         class_cond=args.class_cond,
     )
-
+    
     logger.log("training...")
     TrainLoop(
         model=model,
@@ -59,7 +72,8 @@ def main():
 
 def create_argparser():
     defaults = dict(
-        data_dir="",
+        # data_dir="datasets/Dataset/UNITY_DEPTH_IMAGES",
+        data_dir = "datasets/cifar",
         schedule_sampler="uniform",
         lr=1e-4,
         weight_decay=0.0,
@@ -68,7 +82,7 @@ def create_argparser():
         microbatch=-1,  # -1 disables microbatches
         ema_rate="0.9999",  # comma-separated list of EMA values
         log_interval=10,
-        save_interval=10000,
+        save_interval=1_000,
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,

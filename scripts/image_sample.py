@@ -19,6 +19,7 @@ from improved_diffusion.script_util import (
     args_to_dict,
 )
 
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def main():
     args = create_argparser().parse_args()
@@ -94,7 +95,7 @@ def create_argparser():
         num_samples=10000,
         batch_size=16,
         use_ddim=False,
-        model_path="",
+        model_path="/tmp/openai-2022-11-06-00-13-56-597379/ema_0.9999_070000.pt",
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
